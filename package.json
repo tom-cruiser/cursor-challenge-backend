@@ -9,7 +9,10 @@
     "start": "node dist/server.js",
     "check": "npm run build && npm run check:logic && npm run check:wiring",
     "check:logic": "tsx scripts/check-logic.ts",
-    "check:wiring": "tsx scripts/check-wiring.ts"
+    "check:wiring": "tsx scripts/check-wiring.ts",
+    "seed": "tsx scripts/seed-data.ts",
+    "seed:curl": "bash scripts/seed-via-curl.sh",
+    "dev:jwt": "tsx scripts/generate-dev-jwt.ts"
   },
   "keywords": ["vaccination", "express", "supabase", "fcm"],
   "license": "MIT",
