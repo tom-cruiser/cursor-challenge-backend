@@ -14,7 +14,12 @@
     "seed:curl": "bash scripts/seed-via-curl.sh",
     "dev:jwt": "tsx scripts/generate-dev-jwt.ts"
   },
-  "keywords": ["vaccination", "express", "supabase", "fcm"],
+  "keywords": [
+    "vaccination",
+    "express",
+    "supabase",
+    "fcm"
+  ],
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -28,6 +33,7 @@
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
     "resend": "^4.1.2",
+    "ws": "^8.21.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -36,6 +42,7 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.10.5",
     "@types/node-cron": "^3.0.11",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

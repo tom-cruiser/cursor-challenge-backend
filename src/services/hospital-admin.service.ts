@@ -309,7 +309,7 @@ export async function listRegisteredParents(ownerId: string): Promise<ParentWith
 
   const { data: registrations, error } = await supabase
     .from('parent_hospital_registrations')
-    .select('*, parent:users(*)')
+    .select('*, parent:users!parent_hospital_registrations_parent_id_fkey(*)')
     .eq('hospital_id', hospital.id)
     .order('created_at', { ascending: false });
 
@@ -321,7 +321,11 @@ export async function listRegisteredParents(ownerId: string): Promise<ParentWith
 
   for (const reg of registrations ?? []) {
     const parentRaw = reg.parent as unknown;
-    const parent = (Array.isArray(parentRaw) ? parentRaw[0] : parentRaw) as User;
+    const parent = (Array.isArray(parentRaw) ? parentRaw[0] : parentRaw) as User | null;
+
+    if (!parent?.id) {
+      continue;
+    }
 
     const { data: children } = await supabase
       .from('children')

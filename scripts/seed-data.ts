@@ -155,7 +155,26 @@ async function ensureHospital(seed: HospitalSeed): Promise<string> {
     .maybeSingle();
 
   if (existingHospital) {
-    console.log(`  Hospital exists: ${seed.name} (${existingHospital.id})`);
+    const { error: updateError } = await supabase
+      .from('hospitals')
+      .update({
+        name: seed.name,
+        address: seed.address,
+        latitude: seed.latitude,
+        longitude: seed.longitude,
+        help_phone: seed.helpPhone,
+        country: seed.country,
+        services: seed.services,
+        operating_hours: seed.operatingHours,
+        is_verified: seed.isVerified,
+      })
+      .eq('id', existingHospital.id);
+
+    if (updateError) {
+      throw new Error(`Failed to update hospital ${seed.name}: ${updateError.message}`);
+    }
+
+    console.log(`  Hospital updated: ${seed.name} (${existingHospital.id})`);
     return existingHospital.id;
   }
 

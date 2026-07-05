@@ -14,7 +14,7 @@ export async function findNearbyHospitals(
   options: NearbySearchOptions = {},
 ): Promise<NearbyHospital[]> {
   const limit = options.limit ?? 20;
-  const verifiedOnly = options.verifiedOnly ?? true;
+  const verifiedOnly = options.verifiedOnly ?? false;
 
   const latMin = lat - 0.5;
   const latMax = lat + 0.5;

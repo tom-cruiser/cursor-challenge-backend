@@ -64,8 +64,31 @@ async function resolveUser(phone: string): Promise<AuthUser> {
     .select('*')
     .single();
 
-  if (createError || !created) {
+  if (createError) {
+    // Parallel requests on first login can race on insert; refetch if another won.
+    if (createError.code === '23505') {
+      const { data: raced, error: refetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .single();
+
+      if (refetchError || !raced) {
+        throw new AppError(
+          500,
+          'Failed to resolve user after concurrent provision',
+          refetchError ?? createError,
+        );
+      }
+
+      return buildAuthUser(raced as User);
+    }
+
     throw new AppError(500, 'Failed to provision user', createError);
+  }
+
+  if (!created) {
+    throw new AppError(500, 'Failed to provision user');
   }
 
   return buildAuthUser(created as User);

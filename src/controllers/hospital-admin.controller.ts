@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import * as hospitalAdminService from '../services/hospital-admin.service';
+import { broadcastHospitalEvent } from '../ws/hospitals';
 
 export async function signup(
   req: Request,
@@ -8,6 +9,7 @@ export async function signup(
 ): Promise<void> {
   try {
     const result = await hospitalAdminService.signupHospital(req.user!.id, req.body);
+    broadcastHospitalEvent('hospital:created', result.hospital);
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -34,6 +36,7 @@ export async function updateProfile(
 ): Promise<void> {
   try {
     const hospital = await hospitalAdminService.updateHospitalProfile(req.user!.id, req.body);
+    broadcastHospitalEvent('hospital:updated', hospital);
     res.json({ hospital });
   } catch (err) {
     next(err);

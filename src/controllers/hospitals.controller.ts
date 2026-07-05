@@ -12,7 +12,7 @@ export async function getNearbyHospitals(
 
     const hospitals = await hospitalService.findNearbyHospitals(lat, lng, {
       limit: req.query.limit ? Number(req.query.limit) : 20,
-      verifiedOnly: req.query.verifiedOnly !== 'false',
+      verifiedOnly: req.query.verifiedOnly === 'true',
     });
 
     res.json({ hospitals });
