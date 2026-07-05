@@ -1,4 +1,4 @@
--- Vaccination Reminder Web App — Dual-sided schema (Parent + Hospital)
+-- Migration 001: Vaccination Reminder Web App — Dual-sided schema (Parent + Hospital)
 -- Cursor Kigali Hackathon 2026
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
