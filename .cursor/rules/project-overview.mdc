@@ -1,0 +1,32 @@
+---
+description: Vaccination Reminder backend — project context, roles, and conventions
+alwaysApply: true
+---
+
+# Vaccination Reminder Backend
+
+Dual-sided hackathon app: **parents** (`/api/v1/user`) and **hospitals** (`/api/v1/hospital`).
+
+## Roles
+- `parent` — auto-provisioned on first phone JWT; profile via `PATCH /user/profile`
+- `hospital` — created via `POST /hospital/signup`; owns `hospitals` row via `owner_id`
+
+## Critical paths
+- Schedules come from `hospital_vaccines`, NOT a global catalog
+- Child needs `preferred_hospital_id` before schedules generate
+- `parent_hospital_registrations` links parents to hospitals (`self` | `manual`)
+
+## Stack
+Express + TypeScript + Supabase (service role) + FCM + Resend + Africa's Talking (SMS stub)
+
+## Docs
+- `AGENTS.md` — agent context
+- `docs/ARCHITECTURE.md` — system design
+- `docs/ENVIRONMENT.md` — `.env` / platform setup
+- `docs/API.md` — endpoint reference
+
+## Code rules
+- Business logic in `src/services/`, not controllers
+- Throw `AppError` from services; Zod validation in routes
+- Hospital queries: verify `owner_id` → `hospital_id`
+- Parent queries: verify `parent_id` ownership chain

@@ -1,0 +1,34 @@
+---
+description: TypeScript backend patterns for services, routes, and controllers
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Backend Conventions
+
+## Layer order
+Route → `validate(zodSchema)` → `authenticateToken` → `requireRole` → controller → service → Supabase
+
+## Services (`src/services/`)
+- All DB access via `supabase` from `src/config/database.ts`
+- Return typed models from `src/models/types.ts`
+- Wrap DB errors: `throw new AppError(500, 'context', error)`
+
+## Controllers
+- Thin async handlers: `try { res.json(await service.fn()) } catch (e) { next(e) }`
+- Cast `req.params.id as string` after Zod param validation
+
+## Routes
+- Define Zod schemas next to route definitions
+- Parent routes: `router.use(authenticateToken, requireRole('parent'))`
+- Hospital routes: signup is pre-role; rest uses `requireRole('hospital')`
+
+## Dates
+- Store dates as `YYYY-MM-DD` strings
+- Use `src/utils/dates.ts` for `calculateDueDate`, `ageInMonths`
+
+## Adding endpoints
+1. Service function
+2. Controller handler
+3. Route + Zod schema
+4. Update `docs/API.md`

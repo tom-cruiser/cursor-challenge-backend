@@ -1,0 +1,31 @@
+---
+description: Notification integrations — FCM, Resend, Africa's Talking env and cascade
+globs: src/{config,services,tasks}/**/*
+alwaysApply: false
+---
+
+# Notification Integrations
+
+## Cascade (priority order)
+1. **FCM** (`src/config/firebase.ts`) — primary web push
+2. **Resend** (`src/config/resend.ts`) — email if FCM fails + `users.email` exists
+3. **Africa's Talking** (`src/config/africastalking.ts`) — SMS to `users.phone` when enabled via `AFRICASTALKING_ENABLED=true`
+
+## Env vars
+See `docs/ENVIRONMENT.md`. Required today: Firebase + Resend. SMS optional via `AFRICASTALKING_ENABLED`.
+
+## Cron
+`src/tasks/reminder.cron.ts` runs 6AM `CRON_TZ`. Uses per-vaccine `reminder_days` from `hospital_vaccines`.
+
+## FCM tokens
+- Stored in `fcm_tokens` table
+- Registered via `POST /user/fcm-token`
+- Deactivated on `messaging/registration-token-not-registered`
+
+## When wiring Africa's Talking
+Update `sendVaccinationReminder` in `notification.service.ts` after Resend fallback:
+```typescript
+import { sendSms } from '../config/africastalking';
+// if env.NOTIFICATION_SMS_FALLBACK && env.africasTalkingConfigured
+// await sendSms({ to: user.phone, message: body })
+```
