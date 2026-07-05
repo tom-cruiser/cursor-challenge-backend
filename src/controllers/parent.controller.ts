@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import * as parentService from '../services/parent.service';
 import * as scheduleService from '../services/schedule.service';
+import { sendVaccinationReminder } from '../services/notification.service';
 
 export async function getProfile(
   req: Request,
@@ -65,6 +66,23 @@ export async function registerFcmToken(
   try {
     await parentService.registerFcmTokenForUser(req.user!.id, req.body.token);
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function sendTestNotification(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await sendVaccinationReminder({
+      userId: req.user!.id,
+      title: 'Test Vaccination Reminder',
+      body: 'If you received this, push/email/SMS notifications are working.',
+    });
+    res.json({ success: true, result });
   } catch (err) {
     next(err);
   }

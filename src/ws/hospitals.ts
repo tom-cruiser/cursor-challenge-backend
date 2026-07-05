@@ -1,5 +1,6 @@
 import type { Server } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
+import { env } from '../config/env';
 import { Hospital } from '../models/types';
 
 export type HospitalWsEventType = 'hospital:created' | 'hospital:updated';
@@ -12,7 +13,17 @@ export interface HospitalWsEvent {
 const clients = new Set<WebSocket>();
 
 export function attachHospitalWebSocket(server: Server): WebSocketServer {
-  const wss = new WebSocketServer({ server, path: '/ws/hospitals' });
+  const wss = new WebSocketServer({
+    server,
+    path: '/ws/hospitals',
+    verifyClient: ({ origin }, callback) => {
+      if (!origin || origin === env.FRONTEND_URL) {
+        callback(true);
+      } else {
+        callback(false, 403, 'Forbidden');
+      }
+    },
+  });
 
   wss.on('connection', (ws) => {
     clients.add(ws);

@@ -17,6 +17,7 @@ cp .env.example .env
 | `PORT` | No | `3000` | HTTP listen port |
 | `NODE_ENV` | No | `development` | `development` \| `production` \| `test` |
 | `CRON_TZ` | No | `Africa/Kigali` | Timezone for daily reminder cron |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Vite app origin — CORS allowed origin and WebSocket `Origin` check |
 
 ### Supabase
 

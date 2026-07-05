@@ -96,5 +96,6 @@ router.patch(
 );
 
 router.post('/fcm-token', validate(fcmTokenSchema), parentController.registerFcmToken);
+router.post('/test-notification', parentController.sendTestNotification);
 
 export default router;
