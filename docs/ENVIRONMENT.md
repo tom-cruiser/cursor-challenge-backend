@@ -52,6 +52,15 @@ cp .env.example .env
 | `AFRICASTALKING_ENABLED` | No | `false` | Set `true` once SMS is wired in notification service |
 | `NOTIFICATION_SMS_FALLBACK` | No | `true` | Feature flag for SMS fallback in cascade |
 
+### OpenRouter (AI Assistant)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENROUTER_API_KEY` | For AI routes | — | API key from [openrouter.ai](https://openrouter.ai) — **server only** |
+| `OPENROUTER_MODEL` | No | `google/gemini-2.5-flash` | Model slug passed to OpenRouter |
+| `OPENROUTER_SITE_URL` | No | `FRONTEND_URL` | Sent as `HTTP-Referer` header |
+| `OPENROUTER_APP_TITLE` | No | `Vaccination Reminder Rwanda` | Sent as `X-Title` header |
+
 ---
 
 ## Platform setup guides
@@ -64,6 +73,7 @@ cp .env.example .env
 2. **Database:** SQL Editor → paste and run:
    ```
    supabase/migrations/20260705100000_initial_schema.sql
+   supabase/migrations/20260705_chat_system.sql
    ```
 3. **Phone Auth:** Authentication → Providers → enable Phone
 4. **API keys:** Project Settings → API
@@ -145,6 +155,24 @@ FCM push failed
 ```
 
 **Rwanda note:** Confirm sender ID requirements with Africa's Talking for Rwanda (+250). Alphanumeric sender IDs typically need operator approval.
+
+---
+
+### 5. OpenRouter (AI Assistant)
+
+**Used for:** Parent-facing vaccination assistant chat (`POST /api/v1/ai/sessions/:sessionId/stream`).
+
+1. Create an account at [openrouter.ai](https://openrouter.ai)
+2. Generate an API key from the dashboard
+3. Configure:
+   ```env
+   OPENROUTER_API_KEY=sk-or-v1-...
+   OPENROUTER_MODEL=google/gemini-2.5-flash
+   OPENROUTER_SITE_URL=http://localhost:5173
+   OPENROUTER_APP_TITLE=Vaccination Reminder Rwanda
+   ```
+
+> Keep `OPENROUTER_API_KEY` server-side only. Emergency prompts bypass OpenRouter and return a hard-coded safety disclaimer.
 
 ---
 

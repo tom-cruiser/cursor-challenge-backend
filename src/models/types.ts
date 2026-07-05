@@ -3,6 +3,7 @@ export type CatalogItemType = 'vaccine' | 'checkup';
 export type ScheduleStatus = 'pending' | 'due_soon' | 'completed' | 'overdue';
 export type ChildSex = 'male' | 'female' | 'other';
 export type RegistrationSource = 'self' | 'manual';
+export type ChatMessageRole = 'user' | 'assistant' | 'system';
 
 export interface User {
   id: string;
@@ -136,6 +137,22 @@ export interface AuthUser {
   role: UserRole;
   name: string | null;
   hospitalId?: string;
+}
+
+export interface ChatSession {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: ChatMessageRole;
+  content: string;
+  is_flagged: boolean;
+  created_at: string;
 }
 
 declare global {

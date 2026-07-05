@@ -61,6 +61,40 @@ Idempotent: skips existing hospitals/vaccines.
 
 ---
 
+## Option A2: Real Kigali hospitals (8 facilities)
+
+Seeds verified hospitals with real coordinates, 24h operating hours, and the standard EPI vaccine catalog:
+
+```bash
+cd cursor-challenge-backend
+npm run seed:hospitals
+```
+
+| Hospital | Phone (owner / help) | Coordinates |
+|----------|----------------------|-------------|
+| King Faisal Hospital | +250788123200 | -1.9436307, 30.0953563 |
+| University Teaching Hospital of Kigali (CHUK) | +250788304005 | -1.9559588, 30.0604352 |
+| WIWO Specialized Hospital | +250733444444 | -1.9440809, 30.0675396 |
+| La Croix du Sud Hospital | +250785246882 | -1.9582816, 30.1061156 |
+| Baho International Hospital | +250782343710 | -1.9491973, 30.1054281 |
+| Nyarugenge District Hospital | +250790666663 | -1.981521, 30.0433428 |
+| Kibagabaga Level Two Teaching Hospital | +250798694806 | -1.9307663, 30.1119129 |
+| Masaka Hospital | +250728878194 | -1.9919478, 30.2119896 |
+
+All entries have `is_verified=true` so they appear in nearby search. Metadata (`type`, `sector`, `district`, `city`) is stored in the `services` array alongside `vaccination`.
+
+### Verify nearby search
+
+Start the backend (`npm run dev`), then:
+
+```bash
+curl -s "http://localhost:3000/api/v1/user/hospitals/nearby?lat=-1.9441&lng=30.0619&verifiedOnly=true" | jq '.hospitals[] | {name, distance_km, is_verified}'
+```
+
+Expect the 8 seeded hospitals (plus any other verified facilities in range) sorted by distance from central Kigali.
+
+---
+
 ## Option B: curl via API (dev JWT workaround)
 
 ### Dev JWT — no Supabase OTP required
@@ -228,6 +262,7 @@ The SQL migration (`supabase/migrations/20260705100000_initial_schema.sql`) also
 |--------|---------|
 | `scripts/generate-dev-jwt.ts` | Mint dev Bearer token from phone |
 | `scripts/seed-data.ts` | Service-role direct DB seed |
+| `scripts/seed-kigali-hospitals.ts` | 8 real Kigali hospitals + vaccines |
 | `scripts/seed-via-curl.sh` | API seed via curl + dev JWT |
 
 ---

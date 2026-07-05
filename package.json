@@ -11,6 +11,8 @@
     "check:logic": "tsx scripts/check-logic.ts",
     "check:wiring": "tsx scripts/check-wiring.ts",
     "seed": "tsx scripts/seed-data.ts",
+    "seed:hospitals": "tsx scripts/seed-kigali-hospitals.ts",
+    "seed:admin": "tsx scripts/seed-admin.ts",
     "seed:curl": "bash scripts/seed-via-curl.sh",
     "dev:jwt": "tsx scripts/generate-dev-jwt.ts"
   },

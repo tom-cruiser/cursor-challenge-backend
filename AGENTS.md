@@ -10,7 +10,7 @@ Dual-sided platform:
 
 | Side | Role | Auth claim | Primary flows |
 |------|------|------------|---------------|
-| **Parent** | `parent` | Supabase phone JWT → `users.phone` | Profile, children, hospital registration, upcoming vaccines |
+| **Parent** | `parent` | Supabase phone JWT → `users.phone` | Profile, children, hospital registration, upcoming vaccines, AI assistant chat |
 | **Hospital** | `hospital` | Same JWT flow | Signup, vaccine catalog, parent/child management, mark completions, stats |
 
 Both sides meet via `parent_hospital_registrations` and `children.preferred_hospital_id`. Child schedules are generated from **`hospital_vaccines`** (not a global catalog).
@@ -23,6 +23,7 @@ Both sides meet via `parent_hospital_registrations` and `children.preferred_hosp
 - **Push:** Firebase Admin (`firebase-admin`) — FCM web push
 - **Email fallback:** Resend
 - **SMS fallback:** Africa's Talking — `src/config/africastalking.ts` (enable with `AFRICASTALKING_ENABLED=true`)
+- **AI Assistant:** OpenRouter (Gemini) — SSE streaming via `/api/v1/ai/*` (`OPENROUTER_API_KEY`)
 - **Cron:** `node-cron` daily 6:00 AM `Africa/Kigali`
 
 ## Directory map
@@ -30,13 +31,13 @@ Both sides meet via `parent_hospital_registrations` and `children.preferred_hosp
 ```
 src/
   config/       env.ts, database.ts, firebase.ts, resend.ts, africastalking.ts
-  controllers/  parent, children, timeline, hospitals, hospital-admin
+  controllers/  parent, children, timeline, hospitals, hospital-admin, ai
   middleware/   auth.ts, role.ts, validate.ts, errorHandler.ts
   models/       types.ts
-  routes/       user.routes.ts, hospital.routes.ts, index.ts
-  services/     schedule, parent, hospital, hospital-admin, notification
+  routes/       user.routes.ts, hospital.routes.ts, ai.routes.ts, index.ts
+  services/     schedule, parent, hospital, hospital-admin, notification, ai/
   tasks/        reminder.cron.ts
-  utils/        dates.ts, haversine.ts, errors.ts
+  utils/        dates.ts, haversine.ts, errors.ts, sse.ts
 supabase/migrations/   SQL schema + seeds
 docs/                  ARCHITECTURE.md, ENVIRONMENT.md, API.md
 ```
@@ -74,12 +75,14 @@ Africa's Talking SMS (if AFRICASTALKING_ENABLED=true) ← enabled via env
 2. Apply `supabase/migrations/20260705100000_initial_schema.sql`
 3. `npm install && npm run dev`
 
-## Seed accounts (migration)
+## Seed accounts (migration + `npm run seed:admin`)
 
-| Phone | Role | Notes |
-|-------|------|-------|
-| `+250780000001` | hospital | Kigali University Teaching Hospital |
-| `+250780000002` | hospital | King Faisal Hospital |
+| Phone | Role | Hospital | Mock login |
+|-------|------|----------|------------|
+| `+250780000001` | hospital | Kigali University Teaching Hospital | `admin@demo.com` / `password123` |
+| `+250780000002` | hospital | King Faisal Hospital | — (JWT/OTP only) |
+
+See `docs/ADMIN_SETUP.md` for full login steps.
 
 Parents are auto-created on first authenticated request.
 

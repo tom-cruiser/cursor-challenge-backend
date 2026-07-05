@@ -27,6 +27,10 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_MODEL: z.string().default('google/gemini-2.5-flash'),
+  OPENROUTER_SITE_URL: z.string().url().optional(),
+  OPENROUTER_APP_TITLE: z.string().default('Vaccination Reminder Rwanda'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -42,4 +46,6 @@ export const env = {
   africasTalkingConfigured:
     parsed.data.AFRICASTALKING_ENABLED &&
     Boolean(parsed.data.AFRICASTALKING_API_KEY && parsed.data.AFRICASTALKING_SENDER_ID),
+  OPENROUTER_SITE_URL: parsed.data.OPENROUTER_SITE_URL ?? parsed.data.FRONTEND_URL,
+  openRouterConfigured: Boolean(parsed.data.OPENROUTER_API_KEY),
 };

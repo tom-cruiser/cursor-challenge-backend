@@ -274,3 +274,70 @@ With validation details:
 | `due_soon` | Due within 7 days |
 | `completed` | Marked done by parent or hospital |
 | `overdue` | Past due date, not completed |
+
+---
+
+## AI Assistant routes (`/ai`)
+
+> Requires `role: parent`
+
+Grounded pediatric assistant powered by OpenRouter (Gemini). Responses stream over Server-Sent Events (SSE).
+
+### Create chat session
+```
+POST /ai/sessions
+```
+```json
+{
+  "session": {
+    "id": "uuid",
+    "user_id": "uuid",
+    "created_at": "2026-07-05T12:00:00.000Z",
+    "updated_at": "2026-07-05T12:00:00.000Z"
+  }
+}
+```
+
+### List session messages
+```
+GET /ai/sessions/:sessionId/messages
+```
+```json
+{
+  "messages": [
+    {
+      "id": "uuid",
+      "session_id": "uuid",
+      "role": "user",
+      "content": "What vaccines are due at 6 weeks?",
+      "is_flagged": false,
+      "created_at": "2026-07-05T12:01:00.000Z"
+    }
+  ]
+}
+```
+
+### Stream assistant reply (SSE)
+```
+POST /ai/sessions/:sessionId/stream
+Content-Type: application/json
+Accept: text/event-stream
+```
+```json
+{ "message": "What vaccines are due at 6 weeks?" }
+```
+
+**Response:** `Content-Type: text/event-stream`
+
+Event frames (`data: {...}\n\n`):
+
+| `type` | Description |
+|--------|-------------|
+| `token` | Partial assistant text chunk (`content`) |
+| `flagged` | Emergency safety disclaimer (`content`, `messageId`) — OpenRouter bypassed |
+| `done` | Stream complete (`content`, `messageId`) |
+| `error` | Failure during an active stream (`message`) |
+
+Stream terminator: `data: [DONE]\n\n`
+
+**Pre-flight safety:** Prompts matching acute emergency keywords (`severe sickness`, `unresponsive`, `high fever`, `vomiting`, `seizure`, `bleeding`) are logged with `is_flagged: true` and return the safety disclaimer without calling OpenRouter.
