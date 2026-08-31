@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
+import { env } from '../config/env';
 import { AppError, isAppError } from '../utils/errors';
 
 export function errorHandler(
@@ -8,6 +9,8 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  const isProduction = env.NODE_ENV === 'production';
+
   if (err instanceof ZodError) {
     res.status(400).json({
       error: 'Validation failed',
@@ -17,9 +20,16 @@ export function errorHandler(
   }
 
   if (isAppError(err)) {
+    // err.details often wraps a raw Supabase/Postgres error object — useful
+    // for local debugging, but internal query/constraint detail that must
+    // never reach a production client. Always log it server-side though.
+    if (err.details) {
+      console.error(`AppError ${err.statusCode} ${err.message}:`, err.details);
+    }
+
     res.status(err.statusCode).json({
       error: err.message,
-      ...(err.details ? { details: err.details } : {}),
+      ...(!isProduction && err.details ? { details: err.details } : {}),
     });
     return;
   }

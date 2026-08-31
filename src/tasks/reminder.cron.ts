@@ -115,8 +115,8 @@ export async function processDailyReminders(): Promise<void> {
   );
 }
 
-export function startReminderCron(): void {
-  cron.schedule(
+export function startReminderCron(): cron.ScheduledTask {
+  const task = cron.schedule(
     '0 6 * * *',
     () => {
       processDailyReminders().catch((err) => {
@@ -127,4 +127,5 @@ export function startReminderCron(): void {
   );
 
   console.log(`[reminder.cron] Scheduled daily at 6:00 AM (${env.CRON_TZ})`);
+  return task;
 }

@@ -6,6 +6,7 @@ import * as hospitalsController from '../controllers/hospitals.controller';
 import * as parentController from '../controllers/parent.controller';
 import { authenticateToken } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
+import { sensitiveActionRateLimit } from '../middleware/rateLimit';
 import { validate } from '../middleware/validate';
 
 const router = Router();
@@ -95,7 +96,16 @@ router.patch(
   childrenController.setPreferredHospital,
 );
 
-router.post('/fcm-token', validate(fcmTokenSchema), parentController.registerFcmToken);
-router.post('/test-notification', parentController.sendTestNotification);
+router.post(
+  '/fcm-token',
+  sensitiveActionRateLimit,
+  validate(fcmTokenSchema),
+  parentController.registerFcmToken,
+);
+router.post(
+  '/test-notification',
+  sensitiveActionRateLimit,
+  parentController.sendTestNotification,
+);
 
 export default router;

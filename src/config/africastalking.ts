@@ -38,6 +38,7 @@ export async function sendSms(input: SmsSendInput): Promise<SmsSendResult> {
         apiKey: env.AFRICASTALKING_API_KEY!,
       },
       body: body.toString(),
+      signal: AbortSignal.timeout(10_000),
     });
 
     const data = (await response.json()) as {

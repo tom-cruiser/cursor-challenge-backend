@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import { env } from './config/env';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { globalRateLimit } from './middleware/rateLimit';
 
 export function createApp(): express.Application {
   const app = express();
@@ -16,8 +17,9 @@ export function createApp(): express.Application {
       credentials: true,
     }),
   );
-  app.use(morgan('dev'));
+  app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
   app.use(express.json({ limit: '1mb' }));
+  app.use(globalRateLimit);
 
   app.use('/api/v1', routes);
 

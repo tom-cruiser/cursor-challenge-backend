@@ -47,33 +47,54 @@ export async function syncVaccineToHospitalChildren(
     throw new AppError(500, 'Failed to fetch children for vaccine sync', error);
   }
 
-  let synced = 0;
+  if (!children || children.length === 0) {
+    return 0;
+  }
 
-  for (const child of children ?? []) {
-    const { data: existing } = await supabase
-      .from('child_schedules')
-      .select('id')
-      .eq('child_id', child.id)
-      .eq('hospital_vaccine_id', vaccine.id)
-      .maybeSingle();
+  // Single batched lookup of who already has this vaccine scheduled, instead
+  // of one query per child, then a single batched insert for the rest.
+  const childIds = children.map((child) => child.id);
 
-    if (existing) continue;
+  const { data: existingSchedules, error: existingError } = await supabase
+    .from('child_schedules')
+    .select('child_id')
+    .eq('hospital_vaccine_id', vaccine.id)
+    .in('child_id', childIds);
 
-    const dob = parseDateString(child.date_of_birth as string);
-    const dueDate = calculateDueDate(dob, vaccine.milestone_age_months);
+  if (existingError) {
+    throw new AppError(
+      500,
+      'Failed to check existing schedules for vaccine sync',
+      existingError,
+    );
+  }
 
-    const { error: insertError } = await supabase.from('child_schedules').insert({
+  const alreadyScheduled = new Set((existingSchedules ?? []).map((row) => row.child_id));
+
+  const rows = children
+    .filter((child) => !alreadyScheduled.has(child.id))
+    .map((child) => ({
       child_id: child.id,
       hospital_id: hospitalId,
       hospital_vaccine_id: vaccine.id,
-      due_date: dueDate,
-      status: 'pending',
-    });
+      due_date: calculateDueDate(parseDateString(child.date_of_birth as string), vaccine.milestone_age_months),
+      status: 'pending' as const,
+    }));
 
-    if (!insertError) synced++;
+  if (rows.length === 0) {
+    return 0;
   }
 
-  return synced;
+  const { data: inserted, error: insertError } = await supabase
+    .from('child_schedules')
+    .insert(rows)
+    .select('id');
+
+  if (insertError) {
+    throw new AppError(500, 'Failed to sync vaccine to hospital children', insertError);
+  }
+
+  return inserted?.length ?? 0;
 }
 
 export async function generateTimelineForChild(

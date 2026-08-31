@@ -3,6 +3,12 @@ import { ChatMessage } from '../../models/types';
 import { AppError } from '../../utils/errors';
 
 const OPENROUTER_COMPLETIONS_URL = 'https://openrouter.ai/api/v1/chat/completions';
+// Whole request (connect + full streamed response) must complete within this
+// window, or the SSE connection to our client is held open indefinitely.
+const OPENROUTER_TIMEOUT_MS = 60_000;
+// Caps both the token cost per turn and the risk of exceeding the model's
+// context window on long-running conversations.
+const MAX_HISTORY_MESSAGES = 20;
 
 interface OpenRouterDeltaChunk {
   choices?: Array<{
@@ -43,6 +49,7 @@ function mapHistoryToOpenRouterMessages(
 ): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
   return history
     .filter((message) => message.role === 'user' || message.role === 'assistant')
+    .slice(-MAX_HISTORY_MESSAGES)
     .map((message) => ({
       role: message.role,
       content: message.content,
@@ -94,21 +101,32 @@ export async function streamOpenRouterCompletion(input: StreamCompletionInput): 
     { role: 'user' as const, content: input.userPrompt },
   ];
 
-  const response = await fetch(OPENROUTER_COMPLETIONS_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': env.OPENROUTER_SITE_URL,
-      'X-Title': env.OPENROUTER_APP_TITLE,
-    },
-    body: JSON.stringify({
-      model: env.OPENROUTER_MODEL,
-      messages,
-      stream: true,
-      temperature: 0.4,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(OPENROUTER_COMPLETIONS_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': env.OPENROUTER_SITE_URL,
+        'X-Title': env.OPENROUTER_APP_TITLE,
+      },
+      body: JSON.stringify({
+        model: env.OPENROUTER_MODEL,
+        messages,
+        stream: true,
+        temperature: 0.4,
+      }),
+      signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.name === 'TimeoutError';
+    throw new AppError(
+      isTimeout ? 504 : 502,
+      isTimeout ? 'AI assistant timed out — please try again' : 'Failed to reach AI service',
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   if (!response.ok) {
     let details: unknown = undefined;

@@ -4,6 +4,9 @@ import { getMessaging } from '../config/firebase';
 import { resend, resendFromEmail } from '../config/resend';
 import { supabase } from '../config/database';
 import { AppError } from '../utils/errors';
+import { withTimeout } from '../utils/withTimeout';
+
+const OUTBOUND_SEND_TIMEOUT_MS = 10_000;
 
 export interface SendReminderInput {
   userId: string;
@@ -46,17 +49,21 @@ export async function sendVaccinationReminder(
 
   for (const row of tokens ?? []) {
     try {
-      await messaging.send({
-        token: row.token,
-        notification: { title, body },
-        webpush: {
-          notification: {
-            title,
-            body,
-            icon: '/icon.png',
+      await withTimeout(
+        messaging.send({
+          token: row.token,
+          notification: { title, body },
+          webpush: {
+            notification: {
+              title,
+              body,
+              icon: '/icon.png',
+            },
           },
-        },
-      });
+        }),
+        OUTBOUND_SEND_TIMEOUT_MS,
+        'Firebase messaging.send',
+      );
 
       fcmSent++;
       await supabase
@@ -112,16 +119,20 @@ async function attemptResendFallback(
   }
 
   try {
-    const { error: sendError } = await resend.emails.send({
-      from: resendFromEmail,
-      to: user.email,
-      subject: title,
-      html: `
+    const { error: sendError } = await withTimeout(
+      resend.emails.send({
+        from: resendFromEmail,
+        to: user.email,
+        subject: title,
+        html: `
         <h2>${title}</h2>
         <p>${body}</p>
         <p><small>Sent as a fallback notification for phone ${user.phone}</small></p>
       `,
-    });
+      }),
+      OUTBOUND_SEND_TIMEOUT_MS,
+      'Resend emails.send',
+    );
 
     if (sendError) {
       console.error('Resend fallback failed:', sendError);

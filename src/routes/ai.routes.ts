@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as aiController from '../controllers/ai.controller';
 import { authenticateToken } from '../middleware/auth';
+import { aiRateLimit } from '../middleware/rateLimit';
 import { requireRole } from '../middleware/role';
 import { validate } from '../middleware/validate';
 
@@ -27,6 +28,7 @@ router.get(
 
 router.post(
   '/sessions/:sessionId/stream',
+  aiRateLimit,
   validate(sessionIdParamsSchema, 'params'),
   validate(streamMessageSchema),
   aiController.streamSessionMessage,

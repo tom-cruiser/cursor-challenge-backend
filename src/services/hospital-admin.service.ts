@@ -317,30 +317,44 @@ export async function listRegisteredParents(ownerId: string): Promise<ParentWith
     throw new AppError(500, 'Failed to fetch registered parents', error);
   }
 
-  const results: ParentWithChildren[] = [];
+  const parentEntries = (registrations ?? [])
+    .map((reg) => {
+      const parentRaw = reg.parent as unknown;
+      const parent = (Array.isArray(parentRaw) ? parentRaw[0] : parentRaw) as User | null;
+      return parent?.id ? { parent, registeredAt: reg.created_at as string } : null;
+    })
+    .filter((entry): entry is { parent: User; registeredAt: string } => entry !== null);
 
-  for (const reg of registrations ?? []) {
-    const parentRaw = reg.parent as unknown;
-    const parent = (Array.isArray(parentRaw) ? parentRaw[0] : parentRaw) as User | null;
-
-    if (!parent?.id) {
-      continue;
-    }
-
-    const { data: children } = await supabase
-      .from('children')
-      .select('*')
-      .eq('parent_id', parent.id)
-      .eq('preferred_hospital_id', hospital.id);
-
-    results.push({
-      parent,
-      children: (children ?? []) as Child[],
-      registered_at: reg.created_at as string,
-    });
+  if (parentEntries.length === 0) {
+    return [];
   }
 
-  return results;
+  // Single batched query for every parent's children, instead of one query
+  // per registered parent.
+  const parentIds = parentEntries.map((entry) => entry.parent.id);
+
+  const { data: allChildren, error: childrenError } = await supabase
+    .from('children')
+    .select('*')
+    .in('parent_id', parentIds)
+    .eq('preferred_hospital_id', hospital.id);
+
+  if (childrenError) {
+    throw new AppError(500, 'Failed to fetch children for registered parents', childrenError);
+  }
+
+  const childrenByParent = new Map<string, Child[]>();
+  for (const child of (allChildren ?? []) as Child[]) {
+    const list = childrenByParent.get(child.parent_id) ?? [];
+    list.push(child);
+    childrenByParent.set(child.parent_id, list);
+  }
+
+  return parentEntries.map(({ parent, registeredAt }) => ({
+    parent,
+    children: childrenByParent.get(parent.id) ?? [],
+    registered_at: registeredAt,
+  }));
 }
 
 export async function listHospitalChildren(ownerId: string): Promise<Array<Child & { age_months: number; parent: User }>> {

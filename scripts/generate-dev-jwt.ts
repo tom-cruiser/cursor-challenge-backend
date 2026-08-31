@@ -9,6 +9,13 @@
 import 'dotenv/config';
 import * as jose from 'jose';
 
+if (process.env.NODE_ENV === 'production') {
+  console.error(
+    'Refusing to mint a dev JWT with NODE_ENV=production — this bypasses real phone OTP verification.',
+  );
+  process.exit(1);
+}
+
 const phone = process.argv[2];
 const hoursArg = process.argv.indexOf('--hours');
 const hours = hoursArg >= 0 ? Number(process.argv[hoursArg + 1]) : 24;
