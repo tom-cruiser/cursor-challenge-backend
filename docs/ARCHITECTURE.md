@@ -24,7 +24,7 @@ flowchart TB
     end
 
     subgraph data [Data]
-        Supabase[(PostgreSQL)]
+        Postgres[(PostgreSQL)]
     end
 
     subgraph notify [Notifications]
@@ -44,10 +44,10 @@ flowchart TB
     UserRoutes --> HospitalSvc
     HospitalRoutes --> HospitalAdminSvc
     HospitalAdminSvc --> ScheduleSvc
-    ParentSvc --> Supabase
-    ScheduleSvc --> Supabase
-    HospitalSvc --> Supabase
-    HospitalAdminSvc --> Supabase
+    ParentSvc --> Postgres
+    ScheduleSvc --> Postgres
+    HospitalSvc --> Postgres
+    HospitalAdminSvc --> Postgres
     Cron --> ScheduleSvc
     Cron --> NotifSvc
     NotifSvc --> FCM
@@ -61,8 +61,8 @@ Parents and hospitals are separate user types sharing one `users` table with a `
 
 | Concept | Parent | Hospital |
 |---------|--------|----------|
-| Identity | Phone JWT → `users` row (`role=parent`) | Phone JWT → `users` row (`role=hospital`) + `hospitals.owner_id` |
-| Registration | Auto-provisioned on first auth; profile via `PATCH /user/profile` | `POST /hospital/signup` creates hospital record |
+| Identity | `/auth/register` → `users` row (`role=parent`) | `users` row promoted to `role=hospital` + `hospitals.owner_id` |
+| Registration | `POST /auth/register`; profile via `PATCH /user/profile` | `POST /hospital/signup` creates hospital record |
 | Children | Owns `children` rows | Views/manages children where `preferred_hospital_id` matches |
 | Vaccines | Consumes `hospital_vaccines` via generated schedules | CRUD on `hospital_vaccines` |
 | Link | `parent_hospital_registrations` (self or manual) | Same table, hospital-initiated manual adds |
@@ -128,20 +128,19 @@ Requires `preferred_hospital_id` to be set.
 ```mermaid
 sequenceDiagram
     participant Client
-    participant SupabaseAuth as Supabase Auth
     participant API as Express API
     participant DB as PostgreSQL
 
-    Client->>SupabaseAuth: Phone OTP login
-    SupabaseAuth-->>Client: JWT (phone claim)
+    Client->>API: POST /auth/register or /auth/login (phone + password)
+    API->>DB: users + user_credentials (scrypt hash)
+    API-->>Client: HS256 JWT (sub = user id, signed with JWT_SECRET)
     Client->>API: Authorization Bearer JWT
-    API->>API: jose.jwtVerify(SUPABASE_JWT_SECRET)
-    API->>DB: SELECT users WHERE phone = ?
-    alt User not found
-        API->>DB: INSERT users role=parent
-    end
+    API->>API: jose.jwtVerify(JWT_SECRET)
+    API->>DB: SELECT users WHERE id = sub
     API-->>Client: Request proceeds with req.user
 ```
+
+Password hashes live in `user_credentials`, separate from `users`, so `SELECT *` on users can never expose them.
 
 Hospital operators call `POST /hospital/signup` after auth to set `role=hospital` and create their `hospitals` row.
 
@@ -160,7 +159,7 @@ Hospital operators call `POST /hospital/signup` after auth to set `role=hospital
 |----------|---------|------|
 | 1 | FCM web push | Active tokens in `fcm_tokens` |
 | 2 | Resend email | FCM failure + `users.email` set |
-| 3 | Africa's Talking SMS | Planned — config ready, not wired in service yet |
+| 3 | Africa's Talking SMS | Email failure/absent + `AFRICASTALKING_ENABLED` + `NOTIFICATION_SMS_FALLBACK` |
 
 ## Proximity search
 
@@ -183,3 +182,11 @@ Hospital operators call `POST /hospital/signup` after auth to set `role=hospital
 | Services | `src/services/*.ts` | All business logic and DB access |
 | Config | `src/config/*.ts` | External client initialization |
 | Middleware | `src/middleware/*.ts` | Cross-cutting HTTP concerns |
+
+## AI assistant
+
+`/ai/*` (parent role, rate limited): sessions and messages persist in `chat_sessions` / `chat_messages`. Each turn is safety-screened (`safety.service`), grounded with the parent's children, schedules and clinic (`grounding.service`), then streamed from OpenRouter over SSE (`orchestrator.service`, last 20 messages, 60s timeout).
+
+## Realtime
+
+`/ws/hospitals` (origin-checked against `FRONTEND_URL`) broadcasts `hospital:created` and `hospital:updated`.

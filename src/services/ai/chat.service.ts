@@ -1,9 +1,9 @@
-import { supabase } from '../../config/database';
+import { db } from '../../config/database';
 import { ChatMessage, ChatMessageRole, ChatSession } from '../../models/types';
 import { AppError } from '../../utils/errors';
 
 export async function createChatSession(userId: string): Promise<ChatSession> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('chat_sessions')
     .insert({ user_id: userId })
     .select('*')
@@ -20,7 +20,7 @@ export async function getChatSessionForUser(
   sessionId: string,
   userId: string,
 ): Promise<ChatSession> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('chat_sessions')
     .select('*')
     .eq('id', sessionId)
@@ -44,7 +44,7 @@ export async function listChatMessages(
 ): Promise<ChatMessage[]> {
   await getChatSessionForUser(sessionId, userId);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('chat_messages')
     .select('*')
     .eq('session_id', sessionId)
@@ -70,7 +70,7 @@ export async function insertChatMessage(input: InsertChatMessageInput): Promise<
     throw new AppError(400, 'Message content cannot be empty');
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('chat_messages')
     .insert({
       session_id: input.sessionId,

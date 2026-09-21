@@ -10,10 +10,12 @@
     "check": "npm run build && npm run check:logic && npm run check:wiring",
     "check:logic": "tsx scripts/check-logic.ts",
     "check:wiring": "tsx scripts/check-wiring.ts",
+    "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed-data.ts",
     "seed:hospitals": "tsx scripts/seed-kigali-hospitals.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "seed:curl": "bash scripts/seed-via-curl.sh",
+    "set-password": "tsx scripts/set-password.ts",
     "dev:jwt": "tsx scripts/generate-dev-jwt.ts"
   },
   "keywords": [
@@ -24,7 +26,6 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
@@ -35,6 +36,7 @@
     "jose": "^5.9.6",
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
+    "pg": "^8.23.0",
     "resend": "^4.1.2",
     "ws": "^8.21.0",
     "zod": "^3.24.1"
@@ -45,6 +47,7 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.10.5",
     "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

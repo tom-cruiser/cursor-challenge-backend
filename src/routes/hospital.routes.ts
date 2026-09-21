@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as hospitalAdminController from '../controllers/hospital-admin.controller';
 import { authenticateToken } from '../middleware/auth';
+import { sensitiveActionRateLimit } from '../middleware/rateLimit';
 import { requireRole } from '../middleware/role';
 import { validate } from '../middleware/validate';
 
@@ -75,7 +76,7 @@ const markCompleteSchema = z.object({
 
 const idParamsSchema = z.object({ id: z.string().uuid() });
 
-router.post('/signup', authenticateToken, validate(hospitalSignupSchema), hospitalAdminController.signup);
+router.post('/signup', sensitiveActionRateLimit, authenticateToken, validate(hospitalSignupSchema), hospitalAdminController.signup);
 
 router.use(authenticateToken, requireRole('hospital'));
 

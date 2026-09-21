@@ -1,4 +1,4 @@
-import { supabase } from '../config/database';
+import { db } from '../config/database';
 import { User } from '../models/types';
 import { AppError } from '../utils/errors';
 import { ensureParentRegistered } from './schedule.service';
@@ -13,7 +13,7 @@ export async function updateParentProfile(
   parentId: string,
   input: UpdateParentProfileInput,
 ): Promise<User> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('users')
     .update({
       name: input.name,
@@ -33,7 +33,7 @@ export async function updateParentProfile(
 }
 
 export async function getParentProfile(parentId: string): Promise<User> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('users')
     .select('*')
     .eq('id', parentId)
@@ -51,7 +51,7 @@ export async function registerParentToHospital(
   parentId: string,
   hospitalId: string,
 ): Promise<{ registration: Awaited<ReturnType<typeof ensureParentRegistered>> }> {
-  const { data: hospital, error } = await supabase
+  const { data: hospital, error } = await db
     .from('hospitals')
     .select('id')
     .eq('id', hospitalId)
@@ -66,7 +66,7 @@ export async function registerParentToHospital(
 }
 
 export async function registerFcmTokenForUser(userId: string, token: string): Promise<void> {
-  const { error } = await supabase.from('fcm_tokens').upsert(
+  const { error } = await db.from('fcm_tokens').upsert(
     {
       user_id: userId,
       token,

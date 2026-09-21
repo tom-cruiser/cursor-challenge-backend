@@ -9,19 +9,8 @@
  *   npm run seed:admin
  */
 import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !serviceKey) {
-  console.error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, serviceKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+import { db, pool } from '../src/config/database';
+import { setPassword } from '../src/services/auth.service';
 
 interface AdminSeed {
   phone: string;
@@ -119,7 +108,7 @@ const ADMINS: AdminSeed[] = [
 ];
 
 async function ensureAdmin(seed: AdminSeed): Promise<{ userId: string; hospitalId: string }> {
-  const { data: existingUser } = await supabase
+  const { data: existingUser } = await db
     .from('users')
     .select('id, role')
     .eq('phone', seed.phone)
@@ -129,7 +118,7 @@ async function ensureAdmin(seed: AdminSeed): Promise<{ userId: string; hospitalI
 
   if (existingUser) {
     userId = existingUser.id;
-    const { error } = await supabase
+    const { error } = await db
       .from('users')
       .update({
         role: 'hospital',
@@ -144,7 +133,7 @@ async function ensureAdmin(seed: AdminSeed): Promise<{ userId: string; hospitalI
     }
     console.log(`  User updated: ${seed.phone} (${userId})`);
   } else {
-    const { data: created, error } = await supabase
+    const { data: created, error } = await db
       .from('users')
       .insert({
         phone: seed.phone,
@@ -163,7 +152,11 @@ async function ensureAdmin(seed: AdminSeed): Promise<{ userId: string; hospitalI
     console.log(`  User created: ${seed.phone} (${userId})`);
   }
 
-  const { data: existingHospital } = await supabase
+  if (seed.mockPassword) {
+    await setPassword(userId, seed.mockPassword);
+  }
+
+  const { data: existingHospital } = await db
     .from('hospitals')
     .select('id')
     .eq('owner_id', userId)
@@ -185,7 +178,7 @@ async function ensureAdmin(seed: AdminSeed): Promise<{ userId: string; hospitalI
 
   if (existingHospital) {
     hospitalId = existingHospital.id;
-    const { error } = await supabase
+    const { error } = await db
       .from('hospitals')
       .update(hospitalPayload)
       .eq('id', hospitalId);
@@ -195,7 +188,7 @@ async function ensureAdmin(seed: AdminSeed): Promise<{ userId: string; hospitalI
     }
     console.log(`  Hospital updated: ${seed.hospital.name} (${hospitalId})`);
   } else {
-    const { data: hospital, error } = await supabase
+    const { data: hospital, error } = await db
       .from('hospitals')
       .insert({ owner_id: userId, ...hospitalPayload })
       .select('id')
@@ -219,7 +212,7 @@ async function seedVaccines(
   let inserted = 0;
 
   for (const v of vaccines) {
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('hospital_vaccines')
       .select('id')
       .eq('hospital_id', hospitalId)
@@ -229,7 +222,7 @@ async function seedVaccines(
 
     if (existing) continue;
 
-    const { error } = await supabase.from('hospital_vaccines').insert({
+    const { error } = await db.from('hospital_vaccines').insert({
       hospital_id: hospitalId,
       name: v.name,
       item_type: v.itemType,
@@ -281,7 +274,7 @@ async function main(): Promise<void> {
       hospital: seed.hospital.name,
       mockLogin:
         seed.mockEmail && seed.mockPassword
-          ? `${seed.mockEmail} / ${seed.mockPassword}`
+          ? `${seed.phone} / ${seed.mockPassword}`
           : undefined,
       userId,
       hospitalId,
@@ -306,7 +299,9 @@ async function main(): Promise<void> {
   console.log('Done. See docs/ADMIN_SETUP.md for login instructions.');
 }
 
-main().catch((err) => {
+main()
+  .catch((err) => {
   console.error(err);
   process.exit(1);
-});
+  })
+  .finally(() => pool.end());

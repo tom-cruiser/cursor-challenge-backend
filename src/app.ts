@@ -10,6 +10,11 @@ import { globalRateLimit } from './middleware/rateLimit';
 export function createApp(): express.Application {
   const app = express();
 
+  // Behind a reverse proxy, rate limiting must key on the real client IP.
+  if (env.TRUST_PROXY > 0) {
+    app.set('trust proxy', env.TRUST_PROXY);
+  }
+
   app.use(helmet());
   app.use(
     cors({

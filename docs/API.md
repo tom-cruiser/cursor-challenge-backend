@@ -4,8 +4,32 @@ Base URL: `/api/v1`
 
 All protected routes require:
 ```
-Authorization: Bearer <supabase_jwt>
+Authorization: Bearer <jwt from /auth/login>
 ```
+
+---
+
+## Auth (`/auth`)
+
+Phone + password. Both endpoints return `{ "token": "<jwt>", "user": {...} }`; send the token as `Authorization: Bearer <token>` on every other call. Phones may be entered as `+250788123456` or local `0788123456`.
+
+### Register
+```
+POST /auth/register
+```
+```json
+{ "phone": "+250788123456", "password": "min-8-characters", "name": "Marie Uwase" }
+```
+Creates a parent account. Hospital operators then call `POST /hospital/signup` with the token. `409` if the phone already exists.
+
+### Login
+```
+POST /auth/login
+```
+```json
+{ "phone": "+250788123456", "password": "min-8-characters" }
+```
+`401` with a generic message for an unknown phone or wrong password. Rate limited (30 / 15 min).
 
 ---
 

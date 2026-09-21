@@ -1,4 +1,4 @@
-import { supabase } from '../config/database';
+import { db } from '../config/database';
 import { Hospital, NearbyHospital, OperatingHours } from '../models/types';
 import { AppError } from '../utils/errors';
 import { haversineDistanceKm } from '../utils/haversine';
@@ -21,7 +21,7 @@ export async function findNearbyHospitals(
   const lngMin = lng - 0.5;
   const lngMax = lng + 0.5;
 
-  let query = supabase
+  let query = db
     .from('hospitals')
     .select('*')
     .gte('latitude', latMin)
@@ -63,7 +63,7 @@ function extractVaccinationDays(hours: OperatingHours): string[] | null {
 }
 
 export async function getHospitalById(hospitalId: string): Promise<Hospital> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('hospitals')
     .select('*')
     .eq('id', hospitalId)

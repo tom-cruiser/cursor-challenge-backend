@@ -1,22 +1,10 @@
 /**
- * Seed hospitals and vaccine catalogs via Supabase service role (no JWT/curl).
+ * Seed hospitals and vaccine catalogs via the local Postgres database (no JWT/curl).
  *
  * Usage: npx tsx scripts/seed-data.ts
  */
 import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !serviceKey) {
-  console.error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, serviceKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+import { db, pool } from '../src/config/database';
 
 interface HospitalSeed {
   phone: string;
@@ -121,7 +109,7 @@ const VACCINE_CATALOG: VaccineSeed[] = [
 ];
 
 async function ensureHospital(seed: HospitalSeed): Promise<string> {
-  const { data: existingUser } = await supabase
+  const { data: existingUser } = await db
     .from('users')
     .select('id, role')
     .eq('phone', seed.phone)
@@ -132,14 +120,14 @@ async function ensureHospital(seed: HospitalSeed): Promise<string> {
   if (existingUser) {
     ownerId = existingUser.id;
     if (existingUser.role !== 'hospital') {
-      const { error } = await supabase
+      const { error } = await db
         .from('users')
         .update({ role: 'hospital', name: seed.name, country: seed.country })
         .eq('id', ownerId);
       if (error) throw new Error(`Failed to update user role for ${seed.phone}: ${error.message}`);
     }
   } else {
-    const { data: created, error } = await supabase
+    const { data: created, error } = await db
       .from('users')
       .insert({ phone: seed.phone, role: 'hospital', name: seed.name, country: seed.country })
       .select('id')
@@ -148,14 +136,14 @@ async function ensureHospital(seed: HospitalSeed): Promise<string> {
     ownerId = created.id;
   }
 
-  const { data: existingHospital } = await supabase
+  const { data: existingHospital } = await db
     .from('hospitals')
     .select('id')
     .eq('owner_id', ownerId)
     .maybeSingle();
 
   if (existingHospital) {
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('hospitals')
       .update({
         name: seed.name,
@@ -178,7 +166,7 @@ async function ensureHospital(seed: HospitalSeed): Promise<string> {
     return existingHospital.id;
   }
 
-  const { data: hospital, error: hospitalError } = await supabase
+  const { data: hospital, error: hospitalError } = await db
     .from('hospitals')
     .insert({
       owner_id: ownerId,
@@ -207,7 +195,7 @@ async function seedVaccines(hospitalId: string, hospitalName: string): Promise<n
   let inserted = 0;
 
   for (const v of VACCINE_CATALOG) {
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('hospital_vaccines')
       .select('id')
       .eq('hospital_id', hospitalId)
@@ -217,7 +205,7 @@ async function seedVaccines(hospitalId: string, hospitalName: string): Promise<n
 
     if (existing) continue;
 
-    const { error } = await supabase.from('hospital_vaccines').insert({
+    const { error } = await db.from('hospital_vaccines').insert({
       hospital_id: hospitalId,
       name: v.name,
       item_type: v.itemType,
@@ -258,7 +246,7 @@ async function main(): Promise<void> {
     console.log(`  ${row.name}: ${row.id} (+${row.vaccinesAdded} vaccines)`);
   }
 
-  const { count } = await supabase
+  const { count } = await db
     .from('hospital_vaccines')
     .select('*', { count: 'exact', head: true })
     .eq('is_active', true);
@@ -266,7 +254,9 @@ async function main(): Promise<void> {
   console.log(`\nTotal active vaccines in DB: ${count ?? 0}`);
 }
 
-main().catch((err) => {
+main()
+  .catch((err) => {
   console.error(err);
   process.exit(1);
-});
+  })
+  .finally(() => pool.end());

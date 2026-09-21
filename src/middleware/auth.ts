@@ -1,28 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import * as jose from 'jose';
-import { supabase } from '../config/database';
+import { db } from '../config/database';
 import { env } from '../config/env';
 import { AuthUser, User } from '../models/types';
 import { AppError } from '../utils/errors';
 import { getHospitalIdForOwner } from '../services/hospital-admin.service';
-
-function extractPhone(payload: jose.JWTPayload): string | null {
-  if (typeof payload.phone === 'string' && payload.phone.length > 0) {
-    return payload.phone;
-  }
-
-  const sub = payload.sub;
-  if (typeof sub === 'string' && sub.startsWith('+')) {
-    return sub;
-  }
-
-  const userMetadata = payload.user_metadata as Record<string, unknown> | undefined;
-  if (userMetadata && typeof userMetadata.phone === 'string') {
-    return userMetadata.phone;
-  }
-
-  return null;
-}
 
 async function buildAuthUser(user: User): Promise<AuthUser> {
   const authUser: AuthUser = {
@@ -43,55 +25,17 @@ async function buildAuthUser(user: User): Promise<AuthUser> {
   return authUser;
 }
 
-async function resolveUser(phone: string): Promise<AuthUser> {
-  const { data: existing, error: fetchError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('phone', phone)
-    .maybeSingle();
+async function resolveUser(userId: string): Promise<AuthUser> {
+  const { data: user, error } = await db.from('users').select('*').eq('id', userId).maybeSingle();
 
-  if (fetchError) {
-    throw new AppError(500, 'Failed to resolve user', fetchError);
+  if (error) {
+    throw new AppError(500, 'Failed to resolve user', error);
+  }
+  if (!user) {
+    throw new AppError(401, 'Account no longer exists');
   }
 
-  if (existing) {
-    return buildAuthUser(existing as User);
-  }
-
-  const { data: created, error: createError } = await supabase
-    .from('users')
-    .insert({ phone, role: 'parent' })
-    .select('*')
-    .single();
-
-  if (createError) {
-    // Parallel requests on first login can race on insert; refetch if another won.
-    if (createError.code === '23505') {
-      const { data: raced, error: refetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('phone', phone)
-        .single();
-
-      if (refetchError || !raced) {
-        throw new AppError(
-          500,
-          'Failed to resolve user after concurrent provision',
-          refetchError ?? createError,
-        );
-      }
-
-      return buildAuthUser(raced as User);
-    }
-
-    throw new AppError(500, 'Failed to provision user', createError);
-  }
-
-  if (!created) {
-    throw new AppError(500, 'Failed to provision user');
-  }
-
-  return buildAuthUser(created as User);
+  return buildAuthUser(user as User);
 }
 
 export async function authenticateToken(
@@ -107,18 +51,17 @@ export async function authenticateToken(
     }
 
     const token = authHeader.slice(7);
-    const secret = new TextEncoder().encode(env.SUPABASE_JWT_SECRET);
+    const secret = new TextEncoder().encode(env.JWT_SECRET);
 
     const { payload } = await jose.jwtVerify(token, secret, {
       algorithms: ['HS256'],
     });
 
-    const phone = extractPhone(payload);
-    if (!phone) {
-      throw new AppError(401, 'Token does not contain a valid phone claim');
+    if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+      throw new AppError(401, 'Token does not contain a valid subject');
     }
 
-    req.user = await resolveUser(phone);
+    req.user = await resolveUser(payload.sub);
     next();
   } catch (err) {
     if (err instanceof AppError) {

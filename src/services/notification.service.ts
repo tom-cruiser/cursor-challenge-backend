@@ -2,7 +2,7 @@ import { sendSms } from '../config/africastalking';
 import { env } from '../config/env';
 import { getMessaging } from '../config/firebase';
 import { resend, resendFromEmail } from '../config/resend';
-import { supabase } from '../config/database';
+import { db } from '../config/database';
 import { AppError } from '../utils/errors';
 import { withTimeout } from '../utils/withTimeout';
 
@@ -31,7 +31,7 @@ export async function sendVaccinationReminder(
 ): Promise<SendReminderResult> {
   const { userId, title, body } = input;
 
-  const { data: tokens, error: tokenError } = await supabase
+  const { data: tokens, error: tokenError } = await db
     .from('fcm_tokens')
     .select('id, token')
     .eq('user_id', userId)
@@ -66,7 +66,7 @@ export async function sendVaccinationReminder(
       );
 
       fcmSent++;
-      await supabase
+      await db
         .from('fcm_tokens')
         .update({ last_used_at: new Date().toISOString() })
         .eq('id', row.id);
@@ -80,7 +80,7 @@ export async function sendVaccinationReminder(
           : '';
 
       if (FCM_TOKEN_ERRORS.has(errorCode)) {
-        await supabase
+        await db
           .from('fcm_tokens')
           .update({ is_active: false })
           .eq('id', row.id);
@@ -108,7 +108,7 @@ async function attemptResendFallback(
   title: string,
   body: string,
 ): Promise<boolean> {
-  const { data: user, error } = await supabase
+  const { data: user, error } = await db
     .from('users')
     .select('email, phone')
     .eq('id', userId)
@@ -155,7 +155,7 @@ async function attemptSmsFallback(
     return false;
   }
 
-  const { data: user, error } = await supabase
+  const { data: user, error } = await db
     .from('users')
     .select('phone')
     .eq('id', userId)
@@ -181,7 +181,7 @@ export async function registerFcmToken(
   userId: string,
   token: string,
 ): Promise<void> {
-  const { error } = await supabase.from('fcm_tokens').upsert(
+  const { error } = await db.from('fcm_tokens').upsert(
     {
       user_id: userId,
       token,

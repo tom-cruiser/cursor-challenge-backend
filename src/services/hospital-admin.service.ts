@@ -1,4 +1,4 @@
-import { supabase } from '../config/database';
+import { db } from '../config/database';
 import {
   Child,
   Hospital,
@@ -68,7 +68,7 @@ export interface ManualChildInput {
 }
 
 async function getHospitalByOwner(ownerId: string): Promise<Hospital> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('hospitals')
     .select('*')
     .eq('owner_id', ownerId)
@@ -85,7 +85,7 @@ export async function signupHospital(
   ownerId: string,
   input: HospitalSignupInput,
 ): Promise<{ hospital: Hospital; user: User }> {
-  const { data: existingHospital } = await supabase
+  const { data: existingHospital } = await db
     .from('hospitals')
     .select('id')
     .eq('owner_id', ownerId)
@@ -95,7 +95,7 @@ export async function signupHospital(
     throw new AppError(409, 'Hospital account already registered');
   }
 
-  const { data: user, error: userError } = await supabase
+  const { data: user, error: userError } = await db
     .from('users')
     .update({ role: 'hospital', name: input.name, country: input.country ?? null })
     .eq('id', ownerId)
@@ -106,7 +106,7 @@ export async function signupHospital(
     throw new AppError(500, 'Failed to update user role', userError);
   }
 
-  const { data: hospital, error: hospitalError } = await supabase
+  const { data: hospital, error: hospitalError } = await db
     .from('hospitals')
     .insert({
       owner_id: ownerId,
@@ -154,7 +154,7 @@ export async function updateHospitalProfile(
     throw new AppError(400, 'No fields provided to update');
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('hospitals')
     .update(updates)
     .eq('id', hospital.id)
@@ -183,7 +183,7 @@ export async function createHospitalVaccine(
     throw new AppError(400, ageError);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('hospital_vaccines')
     .insert({
       hospital_id: hospital.id,
@@ -216,7 +216,7 @@ export async function createHospitalVaccine(
 export async function listHospitalVaccines(ownerId: string): Promise<HospitalVaccine[]> {
   const hospital = await getHospitalByOwner(ownerId);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('hospital_vaccines')
     .select('*')
     .eq('hospital_id', hospital.id)
@@ -252,7 +252,7 @@ export async function updateHospitalVaccine(
     throw new AppError(400, 'No fields provided to update');
   }
 
-  const { data: current, error: fetchError } = await supabase
+  const { data: current, error: fetchError } = await db
     .from('hospital_vaccines')
     .select('*')
     .eq('id', vaccineId)
@@ -272,7 +272,7 @@ export async function updateHospitalVaccine(
     throw new AppError(400, ageError);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('hospital_vaccines')
     .update(updates)
     .eq('id', vaccineId)
@@ -293,7 +293,7 @@ export async function deleteHospitalVaccine(
 ): Promise<void> {
   const hospital = await getHospitalByOwner(ownerId);
 
-  const { error } = await supabase
+  const { error } = await db
     .from('hospital_vaccines')
     .update({ is_active: false })
     .eq('id', vaccineId)
@@ -307,7 +307,7 @@ export async function deleteHospitalVaccine(
 export async function listRegisteredParents(ownerId: string): Promise<ParentWithChildren[]> {
   const hospital = await getHospitalByOwner(ownerId);
 
-  const { data: registrations, error } = await supabase
+  const { data: registrations, error } = await db
     .from('parent_hospital_registrations')
     .select('*, parent:users!parent_hospital_registrations_parent_id_fkey(*)')
     .eq('hospital_id', hospital.id)
@@ -333,7 +333,7 @@ export async function listRegisteredParents(ownerId: string): Promise<ParentWith
   // per registered parent.
   const parentIds = parentEntries.map((entry) => entry.parent.id);
 
-  const { data: allChildren, error: childrenError } = await supabase
+  const { data: allChildren, error: childrenError } = await db
     .from('children')
     .select('*')
     .in('parent_id', parentIds)
@@ -360,7 +360,7 @@ export async function listRegisteredParents(ownerId: string): Promise<ParentWith
 export async function listHospitalChildren(ownerId: string): Promise<Array<Child & { age_months: number; parent: User }>> {
   const hospital = await getHospitalByOwner(ownerId);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('children')
     .select('*, parent:users(*)')
     .eq('preferred_hospital_id', hospital.id)
@@ -388,7 +388,7 @@ export async function manuallyAddParent(
 ): Promise<User> {
   const hospital = await getHospitalByOwner(ownerId);
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('users')
     .select('*')
     .eq('phone', input.phone)
@@ -402,7 +402,7 @@ export async function manuallyAddParent(
       throw new AppError(400, 'Phone number belongs to a hospital account');
     }
   } else {
-    const { data: created, error } = await supabase
+    const { data: created, error } = await db
       .from('users')
       .insert({
         phone: input.phone,
@@ -450,7 +450,7 @@ export async function markScheduleCompleteByHospital(
 ): Promise<Awaited<ReturnType<typeof markTimelineItemComplete>>> {
   const hospital = await getHospitalByOwner(ownerId);
 
-  const { data: schedule, error } = await supabase
+  const { data: schedule, error } = await db
     .from('child_schedules')
     .select('id, hospital_id')
     .eq('id', scheduleId)
@@ -474,7 +474,7 @@ export async function getOverdueChildren(ownerId: string) {
   const hospital = await getHospitalByOwner(ownerId);
   const today = new Date().toISOString().split('T')[0];
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('child_schedules')
     .select(`
       *,
@@ -505,35 +505,35 @@ export async function getHospitalStats(ownerId: string): Promise<HospitalDashboa
     pendingResult,
     vaccinesResult,
   ] = await Promise.all([
-    supabase
+    db
       .from('parent_hospital_registrations')
       .select('id', { count: 'exact', head: true })
       .eq('hospital_id', hospital.id),
-    supabase
+    db
       .from('children')
       .select('id', { count: 'exact', head: true })
       .eq('preferred_hospital_id', hospital.id),
-    supabase
+    db
       .from('child_schedules')
       .select('id', { count: 'exact', head: true })
       .eq('hospital_id', hospital.id)
       .eq('status', 'completed'),
-    supabase
+    db
       .from('child_schedules')
       .select('id', { count: 'exact', head: true })
       .eq('hospital_id', hospital.id)
       .eq('status', 'overdue'),
-    supabase
+    db
       .from('child_schedules')
       .select('id', { count: 'exact', head: true })
       .eq('hospital_id', hospital.id)
       .eq('status', 'due_soon'),
-    supabase
+    db
       .from('child_schedules')
       .select('id', { count: 'exact', head: true })
       .eq('hospital_id', hospital.id)
       .eq('status', 'pending'),
-    supabase
+    db
       .from('hospital_vaccines')
       .select('id', { count: 'exact', head: true })
       .eq('hospital_id', hospital.id)

@@ -3,7 +3,7 @@
 #
 # Prerequisites:
 #   - Backend running: npm run dev  (http://localhost:3000)
-#   - .env with SUPABASE_JWT_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+#   - .env with JWT_SECRET, DATABASE_URL
 #
 # Usage:
 #   ./scripts/seed-via-curl.sh

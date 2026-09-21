@@ -1,4 +1,4 @@
-import { supabase } from '../config/database';
+import { db } from '../config/database';
 import {
   Child,
   ChildSchedule,
@@ -16,7 +16,7 @@ import {
 } from '../utils/vaccine-rules';
 
 async function getHospitalVaccines(hospitalId: string): Promise<HospitalVaccine[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('hospital_vaccines')
     .select('*')
     .eq('hospital_id', hospitalId)
@@ -38,7 +38,7 @@ export async function syncVaccineToHospitalChildren(
     return 0;
   }
 
-  const { data: children, error } = await supabase
+  const { data: children, error } = await db
     .from('children')
     .select('id, date_of_birth')
     .eq('preferred_hospital_id', hospitalId);
@@ -55,7 +55,7 @@ export async function syncVaccineToHospitalChildren(
   // of one query per child, then a single batched insert for the rest.
   const childIds = children.map((child) => child.id);
 
-  const { data: existingSchedules, error: existingError } = await supabase
+  const { data: existingSchedules, error: existingError } = await db
     .from('child_schedules')
     .select('child_id')
     .eq('hospital_vaccine_id', vaccine.id)
@@ -85,7 +85,7 @@ export async function syncVaccineToHospitalChildren(
     return 0;
   }
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data: inserted, error: insertError } = await db
     .from('child_schedules')
     .insert(rows)
     .select('id');
@@ -124,7 +124,7 @@ export async function generateTimelineForChild(
     status: 'pending' as const,
   }));
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('child_schedules')
     .insert(rows)
     .select('*');
@@ -141,7 +141,7 @@ async function regenerateTimelineForChild(child: Child): Promise<ChildSchedule[]
     return [];
   }
 
-  await supabase
+  await db
     .from('child_schedules')
     .delete()
     .eq('child_id', child.id)
@@ -162,7 +162,7 @@ export async function createChild(
   },
 ): Promise<{ child: Child; schedule: ChildSchedule[] }> {
   if (input.preferredHospitalId) {
-    const { data: hospital, error: hospitalError } = await supabase
+    const { data: hospital, error: hospitalError } = await db
       .from('hospitals')
       .select('id')
       .eq('id', input.preferredHospitalId)
@@ -175,7 +175,7 @@ export async function createChild(
     await ensureParentRegistered(parentId, input.preferredHospitalId, 'self');
   }
 
-  const { data: child, error } = await supabase
+  const { data: child, error } = await db
     .from('children')
     .insert({
       parent_id: parentId,
@@ -207,7 +207,7 @@ export async function ensureParentRegistered(
   source: 'self' | 'manual',
   registeredBy?: string,
 ): Promise<ParentHospitalRegistration> {
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('parent_hospital_registrations')
     .select('*')
     .eq('parent_id', parentId)
@@ -218,7 +218,7 @@ export async function ensureParentRegistered(
     return existing as ParentHospitalRegistration;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('parent_hospital_registrations')
     .insert({
       parent_id: parentId,
@@ -237,7 +237,7 @@ export async function ensureParentRegistered(
 }
 
 async function verifyChildOwnership(childId: string, parentId: string): Promise<Child> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('children')
     .select('*')
     .eq('id', childId)
@@ -252,7 +252,7 @@ async function verifyChildOwnership(childId: string, parentId: string): Promise<
 }
 
 export async function getChildrenForParent(parentId: string): Promise<Child[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('children')
     .select('*')
     .eq('parent_id', parentId)
@@ -271,7 +271,7 @@ export async function getTimelineForChild(
 ): Promise<ChildScheduleWithVaccine[]> {
   await verifyChildOwnership(childId, parentId);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('child_schedules')
     .select('*, vaccine:hospital_vaccines(*)')
     .eq('child_id', childId);
@@ -311,7 +311,7 @@ export async function markTimelineItemComplete(
   actorId: string,
   options: { cardPhotoUrl?: string; actorRole?: 'parent' | 'hospital' } = {},
 ): Promise<ChildSchedule> {
-  const { data: item, error: fetchError } = await supabase
+  const { data: item, error: fetchError } = await db
     .from('child_schedules')
     .select('*, child:children(parent_id, preferred_hospital_id)')
     .eq('id', itemId)
@@ -331,7 +331,7 @@ export async function markTimelineItemComplete(
     throw new AppError(403, 'Access denied to this timeline item');
   }
 
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await db
     .from('child_schedules')
     .update({
       status: 'completed',
@@ -357,7 +357,7 @@ export async function setPreferredHospital(
 ): Promise<{ child: Child; schedule: ChildSchedule[] }> {
   await verifyChildOwnership(childId, parentId);
 
-  const { data: hospital, error: hospitalError } = await supabase
+  const { data: hospital, error: hospitalError } = await db
     .from('hospitals')
     .select('id')
     .eq('id', hospitalId)
@@ -369,7 +369,7 @@ export async function setPreferredHospital(
 
   await ensureParentRegistered(parentId, hospitalId, 'self');
 
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await db
     .from('children')
     .update({ preferred_hospital_id: hospitalId })
     .eq('id', childId)
@@ -396,7 +396,7 @@ export interface ReminderScheduleRow {
 }
 
 export async function getSchedulesDueOn(date: string): Promise<ReminderScheduleRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('child_schedules')
     .select(`
       id,
@@ -442,7 +442,7 @@ function mapReminderRow(row: Record<string, unknown>): ReminderScheduleRow {
 export async function getOverdueSchedules(): Promise<ReminderScheduleRow[]> {
   const today = new Date().toISOString().split('T')[0];
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('child_schedules')
     .select(`
       id,
@@ -473,7 +473,7 @@ export async function getSchedulesForReminderOffset(daysAhead: number): Promise<
 export async function markOverdueSchedules(): Promise<number> {
   const today = new Date().toISOString().split('T')[0];
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('child_schedules')
     .update({ status: 'overdue' })
     .lt('due_date', today)
@@ -495,7 +495,7 @@ export async function markDueSoonSchedules(): Promise<number> {
   const todayStr = today.toISOString().split('T')[0];
   const endStr = end.toISOString().split('T')[0];
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('child_schedules')
     .update({ status: 'due_soon' })
     .gte('due_date', todayStr)

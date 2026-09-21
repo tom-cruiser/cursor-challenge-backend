@@ -19,13 +19,14 @@ cp .env.example .env
 | `CRON_TZ` | No | `Africa/Kigali` | Timezone for daily reminder cron |
 | `FRONTEND_URL` | No | `http://localhost:5173` | Vite app origin — CORS allowed origin and WebSocket `Origin` check |
 
-### Supabase
+### Database and auth
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SUPABASE_URL` | **Yes** | Project URL (`https://xxx.supabase.co`) |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Yes** | Service role key — **server only, never expose to client** |
-| `SUPABASE_JWT_SECRET` | **Yes** | JWT secret for verifying phone-auth tokens |
+| `DATABASE_URL` | **Yes** | Local PostgreSQL connection string, e.g. `postgresql://postgres:PASSWORD@127.0.0.1:5432/vaccination` (run `npm run migrate` to create/apply schema) |
+| `DATABASE_SSL` | No | `true` to use TLS to the database (default `false`) |
+| `JWT_SECRET` | **Yes** | Signs login tokens, min 16 chars (`openssl rand -hex 32`) |
+| `JWT_EXPIRES_IN` | No | Token lifetime, default `7d` |
 
 ### Firebase (FCM Web Push)
 
@@ -42,14 +43,14 @@ cp .env.example .env
 | `RESEND_API_KEY` | **Yes** | API key from Resend dashboard |
 | `RESEND_FROM_EMAIL` | **Yes** | Verified sender address (e.g. `reminders@yourdomain.com`) |
 
-### Africa's Talking (SMS — planned)
+### Africa's Talking (SMS)
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `AFRICASTALKING_API_KEY` | When SMS enabled | — | API key from Africa's Talking dashboard |
 | `AFRICASTALKING_USERNAME` | No | `sandbox` | App username (`sandbox` for testing) |
 | `AFRICASTALKING_SENDER_ID` | When SMS enabled | — | Shortcode or alphanumeric sender ID |
-| `AFRICASTALKING_ENABLED` | No | `false` | Set `true` once SMS is wired in notification service |
+| `AFRICASTALKING_ENABLED` | No | `false` | Set `true` to enable SMS sends (last step of the FCM → email → SMS cascade) |
 | `NOTIFICATION_SMS_FALLBACK` | No | `true` | Feature flag for SMS fallback in cascade |
 
 ### OpenRouter (AI Assistant)
@@ -65,24 +66,15 @@ cp .env.example .env
 
 ## Platform setup guides
 
-### 1. Supabase
+### 1. PostgreSQL
 
-**Used for:** PostgreSQL database, phone-number authentication (JWT).
+**Used for:** all application data. Authentication (phone + password, JWT) is built into the API.
 
-1. Create a project at [supabase.com](https://supabase.com)
-2. **Database:** SQL Editor → paste and run:
-   ```
-   supabase/migrations/20260705100000_initial_schema.sql
-   supabase/migrations/20260705_chat_system.sql
-   ```
-3. **Phone Auth:** Authentication → Providers → enable Phone
-4. **API keys:** Project Settings → API
-   - `SUPABASE_URL` = Project URL
-   - `SUPABASE_SERVICE_ROLE_KEY` = `service_role` key (secret)
-5. **JWT Secret:** Project Settings → API → JWT Settings → `JWT Secret`
-   - `SUPABASE_JWT_SECRET` = this value
+1. Have a local PostgreSQL running and set `DATABASE_URL` in `.env`.
+2. `npm run migrate` — creates the database if missing and applies `supabase/migrations/*.sql` in order (the Supabase-only row-level-security file is skipped).
+3. Set `JWT_SECRET` (`openssl rand -hex 32`).
 
-> The backend uses the service role key to bypass RLS. All authorization is enforced in Express middleware and services.
+> Authorization is enforced in Express middleware and services.
 
 ---
 
@@ -183,9 +175,8 @@ PORT=3000
 NODE_ENV=development
 CRON_TZ=Africa/Kigali
 
-SUPABASE_URL=https://abcdefgh.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
-SUPABASE_JWT_SECRET=your-jwt-secret-from-supabase
+DATABASE_URL=postgresql://postgres:PASSWORD@127.0.0.1:5432/vaccination
+JWT_SECRET=replace-with-openssl-rand-hex-32
 
 FIREBASE_PROJECT_ID=vaccination-reminder
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk@...
@@ -209,7 +200,7 @@ On startup, `src/config/env.ts` validates all required variables with Zod. Missi
 
 ```bash
 npm run dev
-# Invalid environment variables: { SUPABASE_URL: ['Required'] }
+# Invalid environment variables: { DATABASE_URL: ['Required'] }
 ```
 
 ---
@@ -217,7 +208,7 @@ npm run dev
 ## Security checklist
 
 - [ ] Never commit `.env` (listed in `.gitignore`)
-- [ ] Never expose `SUPABASE_SERVICE_ROLE_KEY` to frontend
+- [ ] Never expose `JWT_SECRET` or `DATABASE_URL` to the frontend
 - [ ] Use separate Firebase/Resend/Africa's Talking keys per environment
 - [ ] Rotate keys if leaked
 - [ ] In production, set `NODE_ENV=production`

@@ -1,54 +1,46 @@
 /**
- * Mint a Supabase-compatible HS256 JWT for local API testing.
- * Uses SUPABASE_JWT_SECRET from .env — no real OTP required.
+ * Mint a login JWT for an existing user, for local API testing (no password needed).
  *
  * Usage:
  *   npx tsx scripts/generate-dev-jwt.ts +250788001001
- *   npx tsx scripts/generate-dev-jwt.ts +250788001001 --hours 24
+ *   npx tsx scripts/generate-dev-jwt.ts +250788001001 --create   # create a parent user if missing
  */
 import 'dotenv/config';
-import * as jose from 'jose';
+import { db, pool } from '../src/config/database';
+import { normalizePhone, signAccessToken } from '../src/services/auth.service';
 
 if (process.env.NODE_ENV === 'production') {
-  console.error(
-    'Refusing to mint a dev JWT with NODE_ENV=production — this bypasses real phone OTP verification.',
-  );
+  console.error('Refusing to mint a dev JWT with NODE_ENV=production.');
   process.exit(1);
 }
 
-const phone = process.argv[2];
-const hoursArg = process.argv.indexOf('--hours');
-const hours = hoursArg >= 0 ? Number(process.argv[hoursArg + 1]) : 24;
-
-if (!phone || !phone.startsWith('+')) {
-  console.error('Usage: npx tsx scripts/generate-dev-jwt.ts +250788001001 [--hours 24]');
-  process.exit(1);
-}
-
-const secret = process.env.SUPABASE_JWT_SECRET;
-if (!secret) {
-  console.error('SUPABASE_JWT_SECRET is not set in .env');
+const rawPhone = process.argv[2];
+if (!rawPhone || !rawPhone.startsWith('+')) {
+  console.error('Usage: npx tsx scripts/generate-dev-jwt.ts +250788001001 [--create]');
   process.exit(1);
 }
 
 async function main(): Promise<void> {
-  const now = Math.floor(Date.now() / 1000);
-  const token = await new jose.SignJWT({
-    phone,
-    role: 'authenticated',
-    user_metadata: { phone },
-  })
-    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .setSubject(phone)
-    .setIssuedAt(now)
-    .setExpirationTime(now + hours * 3600)
-    .setAudience('authenticated')
-    .sign(new TextEncoder().encode(secret));
+  const phone = normalizePhone(rawPhone);
+  let { data: user } = await db.from('users').select('id, phone').eq('phone', phone).maybeSingle();
 
-  console.log(token);
+  if (!user && process.argv.includes('--create')) {
+    ({ data: user } = await db
+      .from('users')
+      .insert({ phone, role: 'parent' })
+      .select('id, phone')
+      .single());
+  }
+  if (!user) {
+    throw new Error(`No user with phone ${phone}. Pass --create to create one.`);
+  }
+
+  console.log(await signAccessToken({ id: user.id, phone: user.phone }));
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err.message ?? err);
+    process.exit(1);
+  })
+  .finally(() => pool.end());

@@ -5,9 +5,8 @@
 
 process.env.PORT = '3000';
 process.env.NODE_ENV = 'test';
-process.env.SUPABASE_URL = 'https://example.supabase.co';
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
-process.env.SUPABASE_JWT_SECRET = 'test-jwt-secret-with-enough-length';
+process.env.DATABASE_URL = 'postgresql://postgres:test@127.0.0.1:5432/test';
+process.env.JWT_SECRET = 'test-jwt-secret-with-enough-length';
 process.env.FIREBASE_PROJECT_ID = 'test-project';
 process.env.FIREBASE_CLIENT_EMAIL = 'test@example.com';
 process.env.FIREBASE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\ntest\\n-----END PRIVATE KEY-----';
@@ -36,7 +35,7 @@ async function main(): Promise<void> {
   console.log('Config:');
   try {
     const { env } = await import('../src/config/env');
-    assert(env.SUPABASE_URL.includes('supabase.co'), 'env.ts loads and parses');
+    assert(env.DATABASE_URL.startsWith('postgresql://'), 'env.ts loads and parses');
     assert(env.africasTalkingConfigured === false, 'Africa\'s Talking disabled by default');
   } catch (err) {
     failed++;

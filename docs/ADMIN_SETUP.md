@@ -13,16 +13,15 @@ cd cursor-challenge-backend
 npm run seed:admin
 ```
 
-Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`.
+Requires `DATABASE_URL` in `.env` (and `npm run migrate` applied).
 
-### Primary admin (mock auth + JWT)
+### Primary admin
 
 | Field | Value |
 |-------|-------|
 | **Hospital** | Kigali University Teaching Hospital |
-| **Mock email** | `admin@demo.com` |
-| **Mock password** | `password123` |
-| **Phone (JWT / API auth)** | `+250780000001` |
+| **Sign in with** | phone `+250780000001` (or `0780000001`) |
+| **Password** | `password123` |
 | **DB email** | `admin@demo.com` |
 | **Operator name** | Dr. Marcus Webb |
 

@@ -1,4 +1,4 @@
-import { supabase } from '../../config/database';
+import { db } from '../../config/database';
 import { ageInMonths, parseDateString } from '../../utils/dates';
 import { AppError } from '../../utils/errors';
 
@@ -37,7 +37,7 @@ interface GroundingPayload {
 }
 
 export async function getUserGroundingContext(userId: string): Promise<string> {
-  const childrenPromise = supabase
+  const childrenPromise = db
     .from('children')
     .select('id, name, date_of_birth, sex, preferred_hospital_id')
     .eq('parent_id', userId);
@@ -60,7 +60,7 @@ export async function getUserGroundingContext(userId: string): Promise<string> {
 
   const schedulesPromise =
     childIds.length > 0
-      ? supabase
+      ? db
           .from('child_schedules')
           .select(
             `
@@ -80,7 +80,7 @@ export async function getUserGroundingContext(userId: string): Promise<string> {
 
   const hospitalsPromise =
     preferredHospitalIds.length > 0
-      ? supabase
+      ? db
           .from('hospitals')
           .select('id, name, address, services, is_verified, help_phone')
           .in('id', preferredHospitalIds)
